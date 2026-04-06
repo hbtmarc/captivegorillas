@@ -7,11 +7,17 @@
     "node": "20"
   },
   "scripts": {
-    "serve": "firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions"
+    "login": "npx firebase-tools login",
+    "serve": "npx firebase-tools emulators:start --only functions --project projectshub-marc35",
+    "secrets:set": "npx firebase-tools functions:secrets:set INTELBRAS_SHARED_PASSWORD --project projectshub-marc35",
+    "deploy": "npx firebase-tools deploy --only functions --project projectshub-marc35",
+    "functions:list": "npx firebase-tools functions:list --project projectshub-marc35"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^5.1.1"
+  },
+  "devDependencies": {
+    "firebase-tools": "^14.3.1"
   }
 }

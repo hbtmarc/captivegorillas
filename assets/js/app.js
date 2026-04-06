@@ -14,9 +14,9 @@ const PRODUCTION_FUNCTION_ENDPOINT = 'https://us-central1-projectshub-marc35.clo
 
 let captiveParams = {};
 let lastConnectionResult = {
-  mode: 'demo',
+  mode: 'firebase',
   requestId: null,
-  warning: 'Firebase não está ativo. Dados não foram gravados.'
+  warning: null
 };
 
 let firebaseServicesPromise = null;
@@ -176,8 +176,8 @@ async function savePortalRequest() {
   if (!hasRealFirebaseConfig()) {
     return {
       ok: false,
-      mode: 'demo',
-      warning: 'Firebase não está ativo. Solicitação não foi gravada no banco.'
+      mode: 'firebase',
+      warning: 'Firebase não está ativo. Configure corretamente o arquivo de credenciais.'
     };
   }
 
@@ -186,8 +186,8 @@ async function savePortalRequest() {
     if (!services) {
       return {
         ok: false,
-        mode: 'demo',
-        warning: 'Firebase não está ativo. Solicitação não foi gravada no banco.'
+        mode: 'firebase',
+        warning: 'Serviço do Firebase indisponível no momento.'
       };
     }
 
@@ -203,8 +203,8 @@ async function savePortalRequest() {
   } catch (_error) {
     return {
       ok: false,
-      mode: 'demo',
-      warning: 'Não foi possível gravar no Firebase agora. Operando em Modo demonstração.'
+      mode: 'firebase',
+      warning: 'Não foi possível gravar no Firebase agora.'
     };
   }
 }
@@ -213,12 +213,7 @@ async function authorizePortalAccess(requestId) {
   const endpoint = getAuthorizeEndpoint();
 
   if (!endpoint) {
-    return {
-      success: true,
-      demoMode: true,
-      approvalUrl: null,
-      message: 'Endpoint de autorização não configurado. Operando em Modo demonstração.'
-    };
+    throw new Error('Endpoint de autorização não configurado.');
   }
 
   const response = await fetch(endpoint, {
@@ -283,8 +278,9 @@ function bindPortal(container) {
       const saveResult = await savePortalRequest();
 
       if (!saveResult.ok || !saveResult.requestId) {
-        lastConnectionResult = saveResult;
-        navigate('#/connected');
+        valMsg.textContent = saveResult.warning || 'Falha ao registrar a solicitação.';
+        btn.disabled = false;
+        btn.textContent = 'Conectar à internet';
         return;
       }
 
@@ -297,13 +293,9 @@ function bindPortal(container) {
       }
 
       if (authResult.demoMode) {
-        lastConnectionResult = {
-          ok: true,
-          mode: 'demo',
-          requestId: saveResult.requestId,
-          warning: authResult.message || 'Modo demonstração ativo.'
-        };
-        navigate('#/connected');
+        valMsg.textContent = authResult.message || 'Parâmetros reais do captive portal não recebidos.';
+        btn.disabled = false;
+        btn.textContent = 'Conectar à internet';
         return;
       }
 
@@ -331,12 +323,9 @@ function bindPortal(container) {
 
 function renderConnected() {
   const isFirebaseMode = lastConnectionResult.mode === 'firebase' && lastConnectionResult.ok;
-  const hasParams = hasCaptiveParams();
-  const badgeClass = isFirebaseMode ? 'badge--ready' : 'badge--demo';
-  const badgeText = isFirebaseMode ? 'Solicitação registrada com sucesso' : 'Modo demonstração';
-  const subtitle = hasParams
-    ? 'Portal pronto para receber integração de liberação de rede no próximo passo.'
-    : 'Fluxo de demonstração ativo para testes sem parâmetros de captive portal.';
+  const badgeClass = 'badge--ready';
+  const badgeText = 'Solicitação registrada com sucesso';
+  const subtitle = 'Portal pronto para receber integração de liberação de rede no próximo passo.';
 
   return `
     <div class="view">
