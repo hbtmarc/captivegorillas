@@ -26,11 +26,13 @@ firebase functions:secrets:set INTELBRAS_SHARED_PASSWORD --project projectshub-m
 Crie/edite o arquivo `functions/.env`:
 
 ```env
-GITHUB_PAGES_ORIGIN=https://SEU_USUARIO.github.io
+GITHUB_PAGES_ORIGIN=https://hbtmarc.github.io
 ```
 
 Se o repositório tiver nome no caminho, continue usando apenas a origem (sem sufixo), por exemplo:
-`https://SEU_USUARIO.github.io`
+`https://hbtmarc.github.io`
+
+Para testes locais, a função já aceita CORS de `http://127.0.0.1:8001` e `http://localhost:8001`.
 
 ## 5) Deploy da função
 
@@ -59,3 +61,8 @@ window.PORTAL_FUNCTIONS_ENDPOINT = "https://authorizeportalaccess-xxxx-uc.a.run.
 2. Front chama `authorizePortalAccess`
 3. Se retornar `approvalUrl`, navegador redireciona imediatamente
 4. Se `demoMode=true`, continua no fluxo de demonstração
+
+## 8) URL final do site
+
+- Produção: `https://hbtmarc.github.io/captivegorillas`
+- Local demo: `http://127.0.0.1:8001/captivegorillas`

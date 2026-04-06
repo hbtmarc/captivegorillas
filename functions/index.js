@@ -13,18 +13,25 @@ const LOCAL_ALLOWED_ORIGINS = new Set([
   'http://localhost',
   'http://localhost:3000',
   'http://localhost:4173',
+  'http://localhost:8001',
   'http://localhost:5500',
   'http://127.0.0.1',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:4173',
+  'http://127.0.0.1:8001',
   'http://127.0.0.1:5500'
 ]);
+
+const DEFAULT_PRODUCTION_ORIGIN = 'https://hbtmarc.github.io';
 
 function getAllowedOrigins() {
   const allowed = new Set(LOCAL_ALLOWED_ORIGINS);
   const prodOrigin = githubPagesOrigin.value();
-  if (prodOrigin && typeof prodOrigin === 'string') {
-    allowed.add(prodOrigin.trim());
+  const originFromEnv = typeof prodOrigin === 'string' ? prodOrigin.trim() : '';
+  if (originFromEnv) {
+    allowed.add(originFromEnv);
+  } else {
+    allowed.add(DEFAULT_PRODUCTION_ORIGIN);
   }
   return allowed;
 }
