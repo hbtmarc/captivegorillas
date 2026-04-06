@@ -174,7 +174,7 @@ exports.authorizePortalAccess = onRequest(
         success: true,
         demoMode: true,
         approvalUrl: null,
-        message: 'Parâmetros do captive portal incompletos. Operando em modo demonstração.'
+        message: 'Parâmetros reais do captive portal não recebidos'
       });
       return;
     }

@@ -12,5 +12,6 @@ window.FIREBASE_CONFIG = {
   measurementId: "G-J0VS6K3V2P"
 };
 
-// Preencha após o deploy da função authorizePortalAccess.
-window.PORTAL_FUNCTIONS_ENDPOINT = "";
+// Endpoint padrão de produção (GitHub Pages).
+// Para testes locais, substitua temporariamente pelo endpoint local/emulado.
+window.PORTAL_FUNCTIONS_ENDPOINT = "https://us-central1-projectshub-marc35.cloudfunctions.net/authorizePortalAccess";
