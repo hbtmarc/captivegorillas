@@ -1,119 +1,82 @@
-# Captive Portal - Gorillas Hamburgueria
+# Captive Portal - Gorillas Hamburgueria (sem Blaze)
 
-Site estático no GitHub Pages + backend de autorização real via Firebase Cloud Functions v2.
+Site estático em GitHub Pages com backend de autorização em Vercel Serverless.
 
-## Arquitetura
+## 1) URLs oficiais
 
-- Frontend estático: HTML/CSS/JS puro (sem framework, sem build, sem npm no site)
-- Backend: `functions/index.js` com endpoint `authorizePortalAccess`
-- Banco: Firebase Realtime Database (registro e atualização da solicitação)
+- Site: `https://hbtmarc.github.io/captivegorillas`
+- Endpoint backend (após deploy Vercel): `https://SEU_PROJETO.vercel.app/api/authorizePortalAccess`
 
-## URL oficial do portal
+## 2) Variáveis do backend (Vercel)
 
-- Produção: `https://hbtmarc.github.io/captivegorillas`
+Configure no projeto Vercel:
 
-## Pré-requisitos (uma vez)
+- `INTELBRAS_SHARED_PASSWORD` = senha compartilhada do seu fluxo Intelbras
+- `FIREBASE_DATABASE_URL` = `https://projectshub-marc35-default-rtdb.firebaseio.com`
+- `GITHUB_PAGES_ORIGIN` = `https://hbtmarc.github.io`
 
-1. Node.js 20+
-2. Conta Firebase com acesso ao projeto `projectshub-marc35`
+## 3) Deploy do backend (Vercel)
 
-## Setup completo do backend (Functions)
-
-### 1) Instalar dependências
+No repositório atual:
 
 ```bash
-cd /Users/marcelino/Documents/VSCODE/captivegorillas/functions
-npm install
+cd /Users/marcelino/Documents/VSCODE/captivegorillas
+npx vercel
 ```
 
-### 2) Login no Firebase (via script local)
+Depois do primeiro deploy:
 
 ```bash
-npm run login
+npx vercel --prod
 ```
 
-### 3) Definir variável de ambiente local da Function
+## 4) Configurar frontend para usar backend real
 
-Arquivo `functions/.env`:
+No arquivo `assets/js/firebase-config.js`, preencher:
 
-```env
-GITHUB_PAGES_ORIGIN=https://hbtmarc.github.io
+```js
+window.PORTAL_AUTH_ENDPOINT = "https://SEU_PROJETO.vercel.app/api/authorizePortalAccess";
 ```
 
-### 4) Definir secret obrigatório (backend)
+E manter `window.FIREBASE_CONFIG` com seus dados atuais.
 
-```bash
-npm run secrets:set
-```
+## 5) Configuração Intelbras (portal externo)
 
-Quando pedir valor do secret `INTELBRAS_SHARED_PASSWORD`, informe a senha compartilhada usada no Intelbras.
-
-### 5) Deploy da Function
-
-```bash
-npm run deploy
-```
-
-### 6) Confirmar função publicada
-
-```bash
-npm run functions:list
-```
-
-## Configuração do frontend
-
-Arquivo: `assets/js/firebase-config.js`
-
-- `window.FIREBASE_CONFIG`: credenciais do projeto Firebase
-- `window.PORTAL_FUNCTIONS_ENDPOINT`: URL do endpoint de produção
-
-Valor padrão configurado:
-
-`https://us-central1-projectshub-marc35.cloudfunctions.net/authorizePortalAccess`
-
-Se o Firebase retornar URL `run.app`, substitua por ela no mesmo arquivo.
-
-## Configuração no roteador Intelbras (Portal Externo)
-
-No Intelbras, configure o portal externo para abrir:
+URL de portal externo no roteador:
 
 `https://hbtmarc.github.io/captivegorillas`
 
-O roteador deve anexar os parâmetros de captive portal (ex.: `redirect_uri`, `ts`, `user_hash`, `continue`).
+O Intelbras deve anexar os parâmetros reais (`redirect_uri`, `ts`, `user_hash`, `continue`).
 
-## Fluxo real esperado (sem modo demo)
+## 6) Fluxo real esperado
 
-1. Cliente acessa SSID de clientes
-2. Intelbras redireciona para `https://hbtmarc.github.io/captivegorillas?...`
+1. Cliente conecta no SSID de clientes
+2. Intelbras abre `https://hbtmarc.github.io/captivegorillas?...`
 3. Usuário aceita termos e toca em **Conectar à internet**
 4. Front grava `captivePortalRequests/{autoId}` no RTDB
-5. Front chama `authorizePortalAccess`
-6. Function valida parâmetros reais
-7. Function atualiza RTDB (`status`, `authorizedAt`, `approvalUrl`, `authFlow`)
-8. Front redireciona imediatamente para `approvalUrl`
+5. Front chama `/api/authorizePortalAccess`
+6. Backend valida parâmetros e monta `approvalUrl`
+7. Backend atualiza RTDB (`status`, `authorizedAt`, `approvalUrl`, `authFlow`)
+8. Front redireciona para `approvalUrl`
 
-## Teste local (com seu cenário)
+## 7) Teste local
 
-- Origens locais já permitidas no CORS da Function:
-  - `http://127.0.0.1:8001`
-  - `http://localhost:8001`
+Frontend local permitido em CORS:
 
-Suba seu servidor estático local e acesse:
+- `http://127.0.0.1:8001`
+- `http://localhost:8001`
+
+Abrir:
 
 `http://127.0.0.1:8001/captivegorillas`
 
-Observação: para teste totalmente real, os parâmetros `redirect_uri`, `ts` e `user_hash` devem vir do Intelbras.
+## 8) Teste de produção com celular
 
-## Teste ponta a ponta em produção (celular)
-
-1. Publicar o site no GitHub Pages
-2. Deploy das Functions concluído sem erro
-3. Secret `INTELBRAS_SHARED_PASSWORD` configurado
-4. Intelbras apontando para `https://hbtmarc.github.io/captivegorillas`
-5. No celular, conectar no SSID de clientes
-6. Abrir o portal e aceitar termos
-7. Tocar em **Conectar à internet**
-8. Validar:
-   - redirecionamento para URL de aprovação
-   - internet liberada
-   - registro no RTDB atualizado para `authorized`
+1. Publicar GitHub Pages e backend Vercel
+2. Confirmar `PORTAL_AUTH_ENDPOINT` no `firebase-config.js`
+3. Conectar celular no SSID de clientes
+4. Abrir captive portal, aceitar termos e tocar em **Conectar à internet**
+5. Validar:
+  - redirecionamento para URL de aprovação
+  - internet liberada
+  - registro no RTDB com `status: authorized`

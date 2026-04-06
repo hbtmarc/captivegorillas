@@ -10,7 +10,6 @@ const CAPTIVE_KEYS = [
 
 const SESSION_MINUTES = 30;
 const IDLE_MINUTES = 5;
-const PRODUCTION_FUNCTION_ENDPOINT = 'https://us-central1-projectshub-marc35.cloudfunctions.net/authorizePortalAccess';
 
 let captiveParams = {};
 let lastConnectionResult = {
@@ -22,11 +21,15 @@ let lastConnectionResult = {
 let firebaseServicesPromise = null;
 
 function getAuthorizeEndpoint() {
+  if (typeof window.PORTAL_AUTH_ENDPOINT === 'string' && window.PORTAL_AUTH_ENDPOINT.trim()) {
+    return window.PORTAL_AUTH_ENDPOINT.trim();
+  }
+
   if (typeof window.PORTAL_FUNCTIONS_ENDPOINT === 'string' && window.PORTAL_FUNCTIONS_ENDPOINT.trim()) {
     return window.PORTAL_FUNCTIONS_ENDPOINT.trim();
   }
 
-  return PRODUCTION_FUNCTION_ENDPOINT;
+  return '';
 }
 
 function parseCaptiveParams() {

@@ -12,6 +12,9 @@ window.FIREBASE_CONFIG = {
   measurementId: "G-J0VS6K3V2P"
 };
 
-// Endpoint padrão de produção (GitHub Pages).
-// Para testes locais, substitua temporariamente pelo endpoint local/emulado.
-window.PORTAL_FUNCTIONS_ENDPOINT = "https://us-central1-projectshub-marc35.cloudfunctions.net/authorizePortalAccess";
+// Endpoint do backend serverless (Vercel) para autorização real.
+// Exemplo: https://SEU_PROJETO.vercel.app/api/authorizePortalAccess
+window.PORTAL_AUTH_ENDPOINT = "https://captivegorillas.vercel.app/api/authorizePortalAccess";
+
+// Compatibilidade com fluxo antigo Firebase Functions (opcional).
+window.PORTAL_FUNCTIONS_ENDPOINT = "";
