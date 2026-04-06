@@ -13,3 +13,7 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "000000000000",
   appId: "1:000000000000:web:xxxxxxxxxxxxxxxxxxxxxx"
 };
+
+// URL HTTP da Cloud Function authorizePortalAccess (v2)
+// Exemplo: https://authorizeportalaccess-xxxx-uc.a.run.app
+window.PORTAL_FUNCTIONS_ENDPOINT = "";

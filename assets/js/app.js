@@ -20,6 +20,11 @@ let lastConnectionResult = {
 
 let firebaseServicesPromise = null;
 
+function getAuthorizeEndpoint() {
+  if (typeof window.PORTAL_FUNCTIONS_ENDPOINT !== 'string') return '';
+  return window.PORTAL_FUNCTIONS_ENDPOINT.trim();
+}
+
 function parseCaptiveParams() {
   const url = new URL(window.location.href);
   const parsed = {};
@@ -200,6 +205,50 @@ async function savePortalRequest() {
   }
 }
 
+async function authorizePortalAccess(requestId) {
+  const endpoint = getAuthorizeEndpoint();
+
+  if (!endpoint) {
+    return {
+      success: true,
+      demoMode: true,
+      approvalUrl: null,
+      message: 'Endpoint de autorização não configurado. Operando em Modo demonstração.'
+    };
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      requestId,
+      acceptedTerms: true,
+      captiveParams: { ...captiveParams }
+    })
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const fallbackMessage = payload?.message || 'Não foi possível autorizar o acesso no momento.';
+    throw new Error(fallbackMessage);
+  }
+
+  return {
+    success: Boolean(payload?.success),
+    demoMode: Boolean(payload?.demoMode),
+    approvalUrl: payload?.approvalUrl || null,
+    message: payload?.message || ''
+  };
+}
+
 function bindPortal(container) {
   const checkbox = container.querySelector('#terms');
   const btn = container.querySelector('#btn-connect');
@@ -226,8 +275,53 @@ function bindPortal(container) {
     btn.disabled = true;
     btn.textContent = 'Conectando...';
 
-    lastConnectionResult = await savePortalRequest();
-    navigate('#/connected');
+    try {
+      const saveResult = await savePortalRequest();
+
+      if (!saveResult.ok || !saveResult.requestId) {
+        lastConnectionResult = saveResult;
+        navigate('#/connected');
+        return;
+      }
+
+      btn.textContent = 'Autorizando acesso...';
+      const authResult = await authorizePortalAccess(saveResult.requestId);
+
+      if (authResult.approvalUrl) {
+        window.location.href = authResult.approvalUrl;
+        return;
+      }
+
+      if (authResult.demoMode) {
+        lastConnectionResult = {
+          ok: true,
+          mode: 'demo',
+          requestId: saveResult.requestId,
+          warning: authResult.message || 'Modo demonstração ativo.'
+        };
+        navigate('#/connected');
+        return;
+      }
+
+      if (!authResult.success) {
+        valMsg.textContent = authResult.message || 'A autorização foi negada. Tente novamente.';
+        btn.disabled = false;
+        btn.textContent = 'Conectar à internet';
+        return;
+      }
+
+      lastConnectionResult = {
+        ok: true,
+        mode: 'firebase',
+        requestId: saveResult.requestId,
+        warning: null
+      };
+      navigate('#/connected');
+    } catch (error) {
+      valMsg.textContent = error?.message || 'Não foi possível concluir a autorização agora.';
+      btn.disabled = false;
+      btn.textContent = 'Conectar à internet';
+    }
   });
 }
 

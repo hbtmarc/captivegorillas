@@ -11,3 +11,6 @@ window.FIREBASE_CONFIG = {
   appId: "1:949883815683:web:889f3ae1c357d9d0b34b36",
   measurementId: "G-J0VS6K3V2P"
 };
+
+// Preencha após o deploy da função authorizePortalAccess.
+window.PORTAL_FUNCTIONS_ENDPOINT = "";
