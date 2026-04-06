@@ -1,36 +1,70 @@
 // ================================================
 // Gorillas Hamburgueria — Captive Portal App
-// Vanilla JS · Hash Router · No dependencies
+// Vanilla JS · Hash Router · Firebase CDN opcional
 // ================================================
 
-// --- Captive portal query-param keys ---
 const CAPTIVE_KEYS = [
   'continue', 'redirect_uri', 'user_hash', 'ts',
   'ip', 'ap_mac', 'mac', 'radio', 'ssid'
 ];
 
-// --- State ---
-let captiveParams = {};   // parsed captive params (if any)
-let hasRealParams = false; // true when at least one captive param exists
+const SESSION_MINUTES = 30;
+const IDLE_MINUTES = 5;
 
-// ------------------------------------------------
-// Parse and store captive params from the URL
-// ------------------------------------------------
+let captiveParams = {};
+let lastConnectionResult = {
+  mode: 'demo',
+  requestId: null,
+  warning: 'Firebase não está ativo. Dados não foram gravados.'
+};
+
+let firebaseServicesPromise = null;
+
 function parseCaptiveParams() {
   const url = new URL(window.location.href);
-  captiveParams = {};
+  const parsed = {};
 
   for (const key of CAPTIVE_KEYS) {
-    const val = url.searchParams.get(key);
-    if (val) captiveParams[key] = val;
+    parsed[key] = url.searchParams.get(key) || null;
   }
 
-  hasRealParams = Object.keys(captiveParams).length > 0;
+  captiveParams = parsed;
 }
 
-// ------------------------------------------------
-// Simple hash router
-// ------------------------------------------------
+function hasCaptiveParams() {
+  return CAPTIVE_KEYS.some((key) => Boolean(captiveParams[key]));
+}
+
+function hasRealFirebaseConfig() {
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || typeof cfg !== 'object') return false;
+
+  const required = ['apiKey', 'authDomain', 'databaseURL', 'projectId', 'appId'];
+  return required.every((key) => {
+    const value = cfg[key];
+    return typeof value === 'string' && value.trim() !== '' && !value.includes('SUA_');
+  });
+}
+
+async function getFirebaseServices() {
+  if (!hasRealFirebaseConfig()) return null;
+
+  if (!firebaseServicesPromise) {
+    firebaseServicesPromise = (async () => {
+      const [{ initializeApp, getApps }, { getDatabase, ref, push }] = await Promise.all([
+        import('https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js'),
+        import('https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js')
+      ]);
+
+      const app = getApps().length ? getApps()[0] : initializeApp(window.FIREBASE_CONFIG);
+      const db = getDatabase(app);
+      return { db, ref, push };
+    })();
+  }
+
+  return firebaseServicesPromise;
+}
+
 function getRoute() {
   return window.location.hash || '#/portal';
 }
@@ -56,13 +90,9 @@ function router() {
   }
 }
 
-// ------------------------------------------------
-// #/portal — main landing page
-// ------------------------------------------------
 function renderPortal() {
   return `
     <div class="view">
-      <!-- Brand -->
       <div class="brand">
         <span class="brand-icon" aria-hidden="true">🦍</span>
         <div class="brand-name">Gorillas</div>
@@ -71,11 +101,9 @@ function renderPortal() {
 
       <div class="divider"></div>
 
-      <!-- Heading -->
       <h1 class="title">Bem-vindo à nossa rede Wi-Fi!</h1>
       <p class="subtitle">Conecte-se gratuitamente e aproveite sua experiência aqui no Gorillas.</p>
 
-      <!-- Network info card -->
       <div class="card" role="region" aria-label="Informações da rede">
         <div class="card-title">Informações da Rede</div>
         <div class="info-row">
@@ -84,35 +112,92 @@ function renderPortal() {
         </div>
         <div class="info-row">
           <span class="info-label">Sessão</span>
-          <span class="info-value">30 minutos</span>
+          <span class="info-value">${SESSION_MINUTES} minutos</span>
         </div>
         <div class="info-row">
           <span class="info-label">Inatividade</span>
-          <span class="info-value">5 minutos</span>
+          <span class="info-value">${IDLE_MINUTES} minutos</span>
         </div>
       </div>
 
-      <!-- Legal -->
       <p class="legal">
         Ao utilizar esta rede, você concorda com as políticas de uso do estabelecimento.
         A conexão é fornecida como cortesia, sem garantias de velocidade ou disponibilidade.
         Não utilize para atividades ilegais ou que violem direitos de terceiros.
       </p>
 
-      <!-- Terms checkbox -->
       <div class="check-group">
         <input type="checkbox" id="terms" aria-required="true">
         <label for="terms">Li e aceito os termos de uso da rede</label>
       </div>
 
-      <!-- Validation message -->
       <div class="validation-msg" id="val-msg" role="alert"></div>
 
-      <!-- CTA -->
       <button class="btn" id="btn-connect" type="button">
         Conectar à internet
       </button>
     </div>`;
+}
+
+function buildPortalRequestRecord() {
+  return {
+    createdAt: new Date().toISOString(),
+    status: 'pending',
+    portalMode: 'externo',
+    authMode: 'senha',
+    businessName: 'Gorillas Hamburgueria',
+    sharedPasswordLabel: 'configured-on-intelbras',
+    sessionMinutes: SESSION_MINUTES,
+    idleMinutes: IDLE_MINUTES,
+    acceptedTerms: true,
+    captiveParams: { ...captiveParams },
+    clientMeta: {
+      userAgent: navigator.userAgent || null,
+      language: navigator.language || null,
+      platform: navigator.platform || null,
+      screenWidth: window.screen?.width || null,
+      screenHeight: window.screen?.height || null
+    },
+    routeOrigin: getRoute(),
+    source: 'github-pages'
+  };
+}
+
+async function savePortalRequest() {
+  if (!hasRealFirebaseConfig()) {
+    return {
+      ok: false,
+      mode: 'demo',
+      warning: 'Firebase não está ativo. Solicitação não foi gravada no banco.'
+    };
+  }
+
+  try {
+    const services = await getFirebaseServices();
+    if (!services) {
+      return {
+        ok: false,
+        mode: 'demo',
+        warning: 'Firebase não está ativo. Solicitação não foi gravada no banco.'
+      };
+    }
+
+    const payload = buildPortalRequestRecord();
+    const result = await services.push(services.ref(services.db, 'captivePortalRequests'), payload);
+
+    return {
+      ok: true,
+      mode: 'firebase',
+      requestId: result.key,
+      warning: null
+    };
+  } catch (_error) {
+    return {
+      ok: false,
+      mode: 'demo',
+      warning: 'Não foi possível gravar no Firebase agora. Operando em Modo demonstração.'
+    };
+  }
 }
 
 function bindPortal(container) {
@@ -120,32 +205,43 @@ function bindPortal(container) {
   const btn = container.querySelector('#btn-connect');
   const valMsg = container.querySelector('#val-msg');
 
-  // Clear validation when user checks the box
   checkbox.addEventListener('change', () => {
-    if (checkbox.checked) valMsg.textContent = '';
+    if (checkbox.checked) {
+      valMsg.textContent = '';
+      checkbox.setAttribute('aria-invalid', 'false');
+    }
   });
 
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
     if (!checkbox.checked) {
       valMsg.textContent = 'Você precisa aceitar os termos para continuar.';
+      checkbox.setAttribute('aria-invalid', 'true');
       checkbox.focus();
       return;
     }
+
+    checkbox.setAttribute('aria-invalid', 'false');
+    valMsg.textContent = '';
+
+    btn.disabled = true;
+    btn.textContent = 'Conectando...';
+
+    lastConnectionResult = await savePortalRequest();
     navigate('#/connected');
   });
 }
 
-// ------------------------------------------------
-// #/connected — success / post-auth page
-// ------------------------------------------------
 function renderConnected() {
-  const mode = hasRealParams;
-  const badgeClass = mode ? 'badge--ready' : 'badge--demo';
-  const badgeText  = mode ? 'Portal pronto para integração' : 'Modo demonstração';
+  const isFirebaseMode = lastConnectionResult.mode === 'firebase' && lastConnectionResult.ok;
+  const hasParams = hasCaptiveParams();
+  const badgeClass = isFirebaseMode ? 'badge--ready' : 'badge--demo';
+  const badgeText = isFirebaseMode ? 'Solicitação registrada com sucesso' : 'Modo demonstração';
+  const subtitle = hasParams
+    ? 'Portal pronto para receber integração de liberação de rede no próximo passo.'
+    : 'Fluxo de demonstração ativo para testes sem parâmetros de captive portal.';
 
   return `
     <div class="view">
-      <!-- Brand -->
       <div class="brand">
         <span class="brand-icon" aria-hidden="true">🦍</span>
         <div class="brand-name">Gorillas</div>
@@ -154,64 +250,48 @@ function renderConnected() {
 
       <div class="divider"></div>
 
-      <!-- Success state -->
       <div class="mt-20 text-center">
         <div class="success-icon" aria-hidden="true">✅</div>
         <h1 class="title">Conexão autorizada!</h1>
-        <p class="subtitle mt-12">Aproveite o Wi-Fi do Gorillas Hamburgueria.</p>
+        <p class="subtitle mt-12">${subtitle}</p>
       </div>
 
-      <!-- Mode badge -->
       <div class="mt-20 text-center">
         <span class="badge ${badgeClass}">${badgeText}</span>
       </div>
 
-      <!-- Session summary card -->
+      ${isFirebaseMode && lastConnectionResult.requestId ? `
+      <div class="request-id" role="status" aria-live="polite">
+        ID da solicitação: <strong>${lastConnectionResult.requestId}</strong>
+      </div>
+      ` : ''}
+
       <div class="card">
         <div class="card-title">Resumo da sessão</div>
         <div class="info-row">
           <span class="info-label">Sessão</span>
-          <span class="info-value">30 minutos</span>
+          <span class="info-value">${SESSION_MINUTES} minutos</span>
         </div>
         <div class="info-row">
           <span class="info-label">Inatividade</span>
-          <span class="info-value">5 minutos</span>
+          <span class="info-value">${IDLE_MINUTES} minutos</span>
         </div>
-        ${mode ? renderParamsRows() : ''}
       </div>
 
-      <!-- Tech note -->
+      ${!isFirebaseMode && lastConnectionResult.warning ? `
+      <div class="warning-note" role="note">
+        ${lastConnectionResult.warning}
+      </div>
+      ` : ''}
+
       <div class="tech-note">
-        ⚙️ A integração com o backend de autenticação (Intelbras / RADIUS) ainda não
-        está implementada. Este portal está preparado para receber os parâmetros de
-        redirecionamento e concluir o fluxo de liberação automaticamente.
+        ⚙️ A liberação real da rede (autenticação Intelbras/RADIUS) será integrada no próximo passo.
       </div>
 
-      <!-- Back button -->
       <button class="btn-outline" id="btn-back" type="button">
         ← Voltar ao portal
       </button>
     </div>`;
-}
-
-/** Render extra info-rows for captive params when available */
-function renderParamsRows() {
-  const labels = {
-    ssid: 'SSID', ip: 'IP do cliente', mac: 'MAC do cliente',
-    ap_mac: 'MAC do AP', radio: 'Rádio', ts: 'Timestamp'
-  };
-
-  let html = '';
-  for (const [key, label] of Object.entries(labels)) {
-    if (captiveParams[key]) {
-      html += `
-        <div class="info-row">
-          <span class="info-label">${label}</span>
-          <span class="info-value" style="font-size:.78rem;word-break:break-all">${captiveParams[key]}</span>
-        </div>`;
-    }
-  }
-  return html;
 }
 
 function bindConnected(container) {
@@ -220,12 +300,8 @@ function bindConnected(container) {
   });
 }
 
-// ------------------------------------------------
-// Init
-// ------------------------------------------------
 parseCaptiveParams();
 
-// Default route if no hash
 if (!window.location.hash) {
   window.location.hash = '#/portal';
 }

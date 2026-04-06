@@ -285,6 +285,33 @@ body {
   border: 1px solid rgba(76,175,80,.3);
 }
 
+.request-id {
+  margin-top: 14px;
+  width: 100%;
+  text-align: center;
+  font-size: .8rem;
+  color: var(--text-dim);
+  word-break: break-word;
+}
+
+.request-id strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.warning-note {
+  margin-top: 14px;
+  width: 100%;
+  font-size: .78rem;
+  color: var(--amber);
+  text-align: center;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px solid rgba(245,166,35,.25);
+  border-radius: 8px;
+  background: rgba(245,166,35,.08);
+}
+
 .tech-note {
   font-size: .72rem;
   color: var(--text-dim);
